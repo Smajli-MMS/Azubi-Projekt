@@ -1,0 +1,5 @@
+rootProject.name = 'AzubiProjekt'
+include 'azubi-core'
+include 'azubi-api'
+include 'azubi-infrastructure'
+include 'azubi-application'
