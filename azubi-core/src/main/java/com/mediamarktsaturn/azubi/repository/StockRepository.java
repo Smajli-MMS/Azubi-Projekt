@@ -1,6 +1,6 @@
 package com.mediamarktsaturn.azubi.repository;
 
-import ensar.relin.playground.boot.entity.Stock;
+import com.mediamarktsaturn.azubi.entity.Stock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

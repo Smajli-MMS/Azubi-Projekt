@@ -1,11 +1,11 @@
 package com.mediamarktsaturn.azubi.service;
 
-import ensar.relin.playground.Category;
-import ensar.relin.playground.boot.dto.ProductDto;
-import ensar.relin.playground.boot.entity.SalesProduct;
-import ensar.relin.playground.boot.entity.Stock;
-import ensar.relin.playground.boot.repository.SalesProductRepository;
-import ensar.relin.playground.boot.repository.StockRepository;
+import com.mediamarktsaturn.azubi.Category;
+import com.mediamarktsaturn.azubi.dto.ProductDto;
+import com.mediamarktsaturn.azubi.entity.SalesProduct;
+import com.mediamarktsaturn.azubi.entity.Stock;
+import com.mediamarktsaturn.azubi.repository.SalesProductRepository;
+import com.mediamarktsaturn.azubi.repository.StockRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,13 +23,13 @@ public class ProductService {
     private StockRepository stockRepository;
 
     // GET /products/{id}
-    public Optional<ensar.relin.playground.SalesProduct> getProductById(Integer id) {
+    public Optional<com.mediamarktsaturn.azubi.SalesProduct> getProductById(Integer id) {
         return salesProductRepository.findById(id)
                 .map(this::convertToSalesProduct);
     }
 
     // GET /products
-    public List<ensar.relin.playground.SalesProduct> getAllProducts() {
+    public List<com.mediamarktsaturn.azubi.SalesProduct> getAllProducts() {
         return salesProductRepository.findAll()
                 .stream()
                 .map(this::convertToSalesProduct)
@@ -37,7 +37,7 @@ public class ProductService {
     }
 
     // POST /products
-    public ensar.relin.playground.SalesProduct createProduct(ProductDto productDto) {
+    public com.mediamarktsaturn.azubi.SalesProduct createProduct(ProductDto productDto) {
         var entity = convertToEntity(productDto);
         entity.setCreated(LocalDateTime.now());
         entity.setUpdated(LocalDateTime.now());
@@ -47,7 +47,7 @@ public class ProductService {
     }
 
     // PUT /products/{id}
-    public Optional<ensar.relin.playground.SalesProduct> updateProduct(Integer id, ProductDto productDto) {
+    public Optional<com.mediamarktsaturn.azubi.SalesProduct> updateProduct(Integer id, ProductDto productDto) {
         return salesProductRepository.findById(id)
                 .map(existingEntity -> {
                     updateEntityFromDto(existingEntity, productDto);
@@ -64,8 +64,8 @@ public class ProductService {
     }
 
     // Hilfsmethoden für Konvertierung
-    private ensar.relin.playground.SalesProduct convertToSalesProduct(SalesProduct entity) {
-        var salesProduct = new ensar.relin.playground.SalesProduct();
+    private com.mediamarktsaturn.azubi.SalesProduct convertToSalesProduct(SalesProduct entity) {
+        var salesProduct = new com.mediamarktsaturn.azubi.SalesProduct();
         salesProduct.setId(entity.getProductId());
         salesProduct.setName(entity.getName());
         salesProduct.setCategory(mapProductGroupToCategory(entity.getProductGroupId()));

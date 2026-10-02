@@ -1,8 +1,8 @@
 package com.mediamarktsaturn.azubi.controller;
 
-import ensar.relin.playground.boot.dto.StockDto;
-import ensar.relin.playground.boot.entity.Stock;
-import ensar.relin.playground.boot.repository.StockRepository;
+import com.mediamarktsaturn.azubi.dto.StockDto;
+import com.mediamarktsaturn.azubi.entity.Stock;
+import com.mediamarktsaturn.azubi.repository.StockRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
