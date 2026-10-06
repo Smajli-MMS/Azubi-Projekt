@@ -10,7 +10,7 @@ public class MarketStock {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "marketstockid")
-    private Integer marketStockId;  // ← Von Long zu Integer geändert
+    private Integer marketStockId;
 
     @Column(name = "marketid")
     private Integer marketId;
@@ -24,16 +24,15 @@ public class MarketStock {
     @Column(name = "lastchange")
     private LocalDateTime lastChange;
 
-    // JPA Relationships
+    // Nur Relation auf Market (liegt ebenfalls in azubi-core, kein Modul-Konflikt)
     @ManyToOne
     @JoinColumn(name = "marketid", insertable = false, updatable = false)
     private Market market;
 
-    @ManyToOne
-    @JoinColumn(name = "productid", insertable = false, updatable = false)
-    private SalesProduct product;
+    // Keine Relation auf SalesProductEntity! Die liegt in azubi-infrastructure.
+    // core darf infrastructure nicht kennen (würde zirkuläre Modul-Abhängigkeit erzeugen).
+    // Produktdaten werden im MarketController manuell über productId nachgeladen.
 
-    // Konstruktoren
     public MarketStock() {
     }
 
@@ -44,7 +43,6 @@ public class MarketStock {
         this.lastChange = LocalDateTime.now();
     }
 
-    // Getters und Setters - NUR marketStockId geändert
     public Integer getMarketStockId() {
         return marketStockId;
     }
@@ -53,7 +51,6 @@ public class MarketStock {
         this.marketStockId = marketStockId;
     }
 
-    // Rest bleibt komplett gleich
     public Integer getMarketId() {
         return marketId;
     }
@@ -94,13 +91,4 @@ public class MarketStock {
     public void setMarket(Market market) {
         this.market = market;
     }
-
-    public SalesProduct getProduct() {
-        return product;
-    }
-
-    public void setProduct(SalesProduct product) {
-        this.product = product;
-    }
 }
-

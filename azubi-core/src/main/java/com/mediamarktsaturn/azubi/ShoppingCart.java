@@ -1,5 +1,7 @@
 package com.mediamarktsaturn.azubi;
 
+import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
+
 import java.util.ArrayList;
 import java.util.List;
 

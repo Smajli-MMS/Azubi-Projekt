@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface MarketStockRepository extends JpaRepository<MarketStock, Integer> {  // ← Long zu Integer
+public interface MarketStockJpaRepository extends JpaRepository<MarketStock, Integer> {  // ← Long zu Integer
 
     List<MarketStock> findByMarketId(Integer marketId);
 

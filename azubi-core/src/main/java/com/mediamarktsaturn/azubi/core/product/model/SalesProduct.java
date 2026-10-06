@@ -1,4 +1,6 @@
-package com.mediamarktsaturn.azubi;
+package com.mediamarktsaturn.azubi.core.product.model;
+
+import com.mediamarktsaturn.azubi.Category;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

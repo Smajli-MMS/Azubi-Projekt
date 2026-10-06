@@ -2,7 +2,7 @@ package com.mediamarktsaturn.azubi.controller;
 
 import com.mediamarktsaturn.azubi.dto.StockDto;
 import com.mediamarktsaturn.azubi.entity.Stock;
-import com.mediamarktsaturn.azubi.repository.StockRepository;
+import com.mediamarktsaturn.azubi.repository.StockJpaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +17,7 @@ import java.util.Optional;
 public class StockController {
 
     @Autowired
-    private StockRepository stockRepository;
+    private StockJpaRepository stockRepository;
 
     // GET /api/stock - Alle Bestände abrufen
     @GetMapping

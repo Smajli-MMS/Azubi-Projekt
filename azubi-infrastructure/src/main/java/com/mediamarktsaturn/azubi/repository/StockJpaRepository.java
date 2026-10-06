@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface StockRepository extends JpaRepository<Stock, Integer> {
+public interface StockJpaRepository extends JpaRepository<Stock, Integer> {
 
     Optional<Stock> findByProductId(Integer productId);
 
@@ -25,6 +25,6 @@ public interface StockRepository extends JpaRepository<Stock, Integer> {
     List<Stock> findOutOfStockProducts();
 
     // Custom Query: Bestand nach Produktgruppe
-    @Query("SELECT s FROM Stock s JOIN SalesProduct sp ON s.productId = sp.productId WHERE sp.productGroupId = :groupId")
+    @Query("SELECT s FROM Stock s JOIN salesproduct sp ON s.productId = sp.productid WHERE sp.productGroupId = :groupId")
     List<Stock> findStockByProductGroup(@Param("groupId") Integer productGroupId);
 }

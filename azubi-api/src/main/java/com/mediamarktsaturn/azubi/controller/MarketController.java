@@ -4,10 +4,10 @@ import com.mediamarktsaturn.azubi.dto.MarketDto;
 import com.mediamarktsaturn.azubi.dto.ProductWithMarketStockDto;
 import com.mediamarktsaturn.azubi.entity.Market;
 import com.mediamarktsaturn.azubi.entity.MarketStock;
-import com.mediamarktsaturn.azubi.entity.SalesProduct;
-import com.mediamarktsaturn.azubi.repository.MarketRepository;
-import com.mediamarktsaturn.azubi.repository.MarketStockRepository;
-import com.mediamarktsaturn.azubi.repository.SalesProductRepository;
+import com.mediamarktsaturn.azubi.product.entity.SalesProductEntity;
+import com.mediamarktsaturn.azubi.repository.MarketJpaRepository;
+import com.mediamarktsaturn.azubi.repository.MarketStockJpaRepository;
+import com.mediamarktsaturn.azubi.product.repository.SalesProductJpaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,13 +20,13 @@ import java.util.*;
 public class MarketController {
 
     @Autowired
-    private MarketRepository marketRepository;
+    private MarketJpaRepository marketRepository;
 
     @Autowired
-    private MarketStockRepository marketStockRepository;
+    private MarketStockJpaRepository marketStockRepository;
 
     @Autowired
-    private SalesProductRepository salesProductRepository;
+    private SalesProductJpaRepository salesProductRepository;
 
     // GET /api/markets - Alle Märkte abrufen
     @GetMapping
@@ -121,12 +121,12 @@ public class MarketController {
         List<MarketStock> allStocks = marketStockRepository.findAllStockForProduct(productId);
 
         // Produktinformationen laden
-        Optional<SalesProduct> productOpt = salesProductRepository.findById(productId);
+        Optional<SalesProductEntity> productOpt = salesProductRepository.findById(productId);
         if (!productOpt.isPresent()) {
             return ResponseEntity.notFound().build();
         }
 
-        SalesProduct product = productOpt.get();
+        SalesProductEntity product = productOpt.get();
 
         List<Map<String, Object>> marketAvailability = new ArrayList<>();
         int totalStock = 0;
@@ -181,11 +181,11 @@ public class MarketController {
     }
 
     private ProductWithMarketStockDto convertToProductWithStockDto(MarketStock marketStock) {
-        Optional<SalesProduct> productOpt = salesProductRepository.findById(marketStock.getProductId());
+        Optional<SalesProductEntity> productOpt = salesProductRepository.findById(marketStock.getProductId());
         Optional<Market> marketOpt = marketRepository.findById(marketStock.getMarketId());
 
         if (productOpt.isPresent() && marketOpt.isPresent()) {
-            SalesProduct product = productOpt.get();
+            SalesProductEntity product = productOpt.get();
             Market market = marketOpt.get();
 
             return new ProductWithMarketStockDto(

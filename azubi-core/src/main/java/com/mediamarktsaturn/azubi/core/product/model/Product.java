@@ -1,5 +1,7 @@
-package com.mediamarktsaturn.azubi;
+package com.mediamarktsaturn.azubi.core.product.model;
 
+
+import com.mediamarktsaturn.azubi.Category;
 
 // Erstellt id, name, category
 public class Product {

@@ -1,4 +1,4 @@
-package com.mediamarktsaturn.azubi.entity;
+package com.mediamarktsaturn.azubi.product.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "salesproduct", schema = "relin_uni2")  // ← Schema hinzugefügt
-public class SalesProduct {
+public class SalesProductEntity {
     @Id
     @Column(name = "productid")
     private Integer productId;
@@ -31,10 +31,10 @@ public class SalesProduct {
     private LocalDateTime updated;
 
     // Rest bleibt gleich...
-    public SalesProduct() {
+    public SalesProductEntity() {
     }
 
-    public SalesProduct(String name, Integer productGroupId, BigDecimal price) {
+    public SalesProductEntity(String name, Integer productGroupId, BigDecimal price) {
         this.name = name;
         this.productGroupId = productGroupId;
         this.price = price;

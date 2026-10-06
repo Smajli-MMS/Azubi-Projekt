@@ -1,4 +1,4 @@
-package com.mediamarktsaturn.azubi.dto;
+package com.mediamarktsaturn.azubi.product.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class ProductDto {
+public class ProductApiDto {
     private Integer productId;
     private String articleNumber;
     private String name;
@@ -30,12 +30,12 @@ public class ProductDto {
     private String stockStatus;  // "AVAILABLE", "LOW_STOCK", "OUT_OF_STOCK"
 
     // Konstruktoren
-    public ProductDto() {
+    public ProductApiDto() {
         updateStockStatus(); // Initialer Status
     }
 
-    public ProductDto(Integer productId, String name, Integer productGroupId,
-                      BigDecimal price, LocalDateTime created, LocalDateTime updated) {
+    public ProductApiDto(Integer productId, String name, Integer productGroupId,
+                         BigDecimal price, LocalDateTime created, LocalDateTime updated) {
         this.productId = productId;
         this.name = name;
         this.productGroupId = productGroupId;
@@ -47,9 +47,9 @@ public class ProductDto {
     }
 
     // ✅ Vollständiger Konstruktor mit Stock
-    public ProductDto(Integer productId, String name, Integer productGroupId,
-                      BigDecimal price, LocalDateTime created, LocalDateTime updated,
-                      Integer stockQuantity, LocalDateTime stockLastChange) {
+    public ProductApiDto(Integer productId, String name, Integer productGroupId,
+                         BigDecimal price, LocalDateTime created, LocalDateTime updated,
+                         Integer stockQuantity, LocalDateTime stockLastChange) {
         this(productId, name, productGroupId, price, created, updated);
         this.stockQuantity = stockQuantity;
         this.stockLastChange = stockLastChange;
@@ -233,7 +233,7 @@ public class ProductDto {
     }
 
     // ✅ Copy-Methoden für Updates
-    public void updateFrom(ProductDto other) {
+    public void updateFrom(ProductApiDto other) {
         if (other.name != null) this.name = other.name;
         if (other.price != null) this.price = other.price;
         if (other.productGroupId != null) {
@@ -249,7 +249,7 @@ public class ProductDto {
 
     // ✅ Builder-Pattern für einfache Erstellung
     public static class Builder {
-        private ProductDto dto = new ProductDto();
+        private ProductApiDto dto = new ProductApiDto();
 
         public Builder id(Integer productId) {
             dto.setProductId(productId);
@@ -286,7 +286,7 @@ public class ProductDto {
             return this;
         }
 
-        public ProductDto build() {
+        public ProductApiDto build() {
             dto.updateStockStatus();
             return dto;
         }
@@ -317,7 +317,7 @@ public class ProductDto {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        ProductDto that = (ProductDto) o;
+        ProductApiDto that = (ProductApiDto) o;
         return productId != null && productId.equals(that.productId);
     }
 
