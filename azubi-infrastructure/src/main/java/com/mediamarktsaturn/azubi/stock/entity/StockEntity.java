@@ -1,20 +1,32 @@
-package com.mediamarktsaturn.azubi.dto;
+package com.mediamarktsaturn.azubi.stock.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
-public class StockDto {
+@Entity
+@Table(name = "stock", schema = "relin_uni2")  // ✅ Schema hinzugefügt
+public class StockEntity {
+    @Id
+    @Column(name = "productid")
     private Integer productId;
+
+    @Column(name = "stock")
     private Integer stock;
+
+    @Column(name = "lastchange")
     private LocalDateTime lastChange;
 
-    // Konstruktoren
-    public StockDto() {
+    public StockEntity() {
     }
 
-    public StockDto(Integer productId, Integer stock, LocalDateTime lastChange) {
+    public StockEntity(Integer productId, Integer stock) {
         this.productId = productId;
         this.stock = stock;
-        this.lastChange = lastChange;
+        this.lastChange = LocalDateTime.now();
     }
 
     // Getters und Setters
@@ -32,6 +44,7 @@ public class StockDto {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+        this.lastChange = LocalDateTime.now();
     }
 
     public LocalDateTime getLastChange() {
@@ -40,14 +53,5 @@ public class StockDto {
 
     public void setLastChange(LocalDateTime lastChange) {
         this.lastChange = lastChange;
-    }
-
-    @Override
-    public String toString() {
-        return "StockDto{" +
-                "productId=" + productId +
-                ", stock=" + stock +
-                ", lastChange=" + lastChange +
-                '}';
     }
 }

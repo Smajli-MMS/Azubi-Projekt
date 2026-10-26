@@ -1,8 +1,10 @@
 package com.mediamarktsaturn.azubi.product.controller;
 
-import com.mediamarktsaturn.azubi.Category;
+import com.mediamarktsaturn.azubi.core.product.model.Category;
+import com.mediamarktsaturn.azubi.core.product.dto.UpdateProductDto;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
 import com.mediamarktsaturn.azubi.product.model.ProductApiDto;
+import com.mediamarktsaturn.azubi.product.model.UpdateProductApiRequest;
 
 import java.math.BigDecimal;
 
@@ -26,6 +28,14 @@ public class ProductApiMapper {
         product.setCategory(mapProductGroupToCategory(dto.getProductGroupId()));
         product.setPrice(dto.getPrice() != null ? dto.getPrice().doubleValue() : 0.0);
         return product;
+    }
+
+    public static UpdateProductDto convertToDomain(UpdateProductApiRequest request){
+        return new UpdateProductDto(
+                request.name(),
+                mapProductGroupToCategory(request.productGroupId()),
+                request.price()
+        );
     }
 
     private static Category mapProductGroupToCategory(Integer productGroupId) {

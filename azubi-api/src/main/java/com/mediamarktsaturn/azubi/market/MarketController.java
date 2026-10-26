@@ -1,14 +1,12 @@
-package com.mediamarktsaturn.azubi.controller;
+package com.mediamarktsaturn.azubi.market;
 
-import com.mediamarktsaturn.azubi.dto.MarketDto;
-import com.mediamarktsaturn.azubi.dto.ProductWithMarketStockDto;
-import com.mediamarktsaturn.azubi.entity.Market;
-import com.mediamarktsaturn.azubi.entity.MarketStock;
-import com.mediamarktsaturn.azubi.product.entity.SalesProductEntity;
-import com.mediamarktsaturn.azubi.repository.MarketJpaRepository;
-import com.mediamarktsaturn.azubi.repository.MarketStockJpaRepository;
-import com.mediamarktsaturn.azubi.product.repository.SalesProductJpaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.mediamarktsaturn.azubi.core.market.MarketService;
+import com.mediamarktsaturn.azubi.core.market.model.Market;
+import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
+import com.mediamarktsaturn.azubi.market.model.MarketApiResponse;
+import com.mediamarktsaturn.azubi.market.model.ProductWithMarketStockDto;
+import com.mediamarktsaturn.azubi.core.market.model.MarketStock;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,45 +17,35 @@ import java.util.*;
 @RequestMapping("/api/markets")
 public class MarketController {
 
-    @Autowired
-    private MarketJpaRepository marketRepository;
+    // TODO Replace Map with actual Response Dto
+    // TODO Think about if the logic here fits best to either Market, or Stock, or MarketStock
 
-    @Autowired
-    private MarketStockJpaRepository marketStockRepository;
+    private final MarketService marketService;
 
-    @Autowired
-    private SalesProductJpaRepository salesProductRepository;
+    public MarketController(MarketService marketService) {
+        this.marketService = marketService;
+    }
 
     // GET /api/markets - Alle Märkte abrufen
     @GetMapping
-    public ResponseEntity<List<MarketDto>> getAllMarkets() {
-        List<Market> markets = marketRepository.findAll();
-        List<MarketDto> marketDtos = new ArrayList<>();
-
-        for (Market market : markets) {
-            marketDtos.add(convertToDto(market));
-        }
-
-        return ResponseEntity.ok(marketDtos);
+    public ResponseEntity<List<MarketApiResponse>> getAllMarkets() {
+        List<Market> markets = marketService.getAllMarkets();
+        var response = markets.stream().map(MarketApiMapper::convertToDto).toList();
+        return ResponseEntity.ok(response);
     }
 
     // GET /api/markets/{marketId} - Spezifischen Markt abrufen
     @GetMapping("/{marketId}")
-    public ResponseEntity<MarketDto> getMarketById(@PathVariable Integer marketId) {
-        Optional<Market> market = marketRepository.findById(marketId);
-
-        if (market.isPresent()) {
-            MarketDto dto = convertToDto(market.get());
-            return ResponseEntity.ok(dto);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<MarketApiResponse> getMarketById(@PathVariable Integer marketId) {
+        return marketService.getMarket(marketId)
+                .map(market -> ResponseEntity.ok(MarketApiMapper.convertToDto(market)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // GET /api/markets/{marketId}/products - Alle Produkte eines Marktes mit Bestand
     @GetMapping("/{marketId}/products")
     public ResponseEntity<List<ProductWithMarketStockDto>> getProductsByMarket(@PathVariable Integer marketId) {
-        List<MarketStock> marketStocks = marketStockRepository.findByMarketId(marketId);
+        List<MarketStock> marketStocks = marketService.getStockByMarket(marketId);
         List<ProductWithMarketStockDto> products = new ArrayList<>();
 
         for (MarketStock stock : marketStocks) {
@@ -73,7 +61,7 @@ public class MarketController {
     // GET /api/markets/{marketId}/products/available - Nur verfügbare Produkte eines Marktes
     @GetMapping("/{marketId}/products/available")
     public ResponseEntity<List<ProductWithMarketStockDto>> getAvailableProductsByMarket(@PathVariable Integer marketId) {
-        List<MarketStock> availableStocks = marketStockRepository.findAvailableStockByMarket(marketId);
+        List<MarketStock> availableStocks = marketService.getAvailableStockByMarket(marketId);
         List<ProductWithMarketStockDto> products = new ArrayList<>();
 
         for (MarketStock stock : availableStocks) {
@@ -89,11 +77,11 @@ public class MarketController {
     // GET /api/markets/overview - Marktübersicht mit Produktanzahl
     @GetMapping("/overview")
     public ResponseEntity<List<Map<String, Object>>> getMarketsOverview() {
-        List<Market> markets = marketRepository.findAll();
+        List<Market> markets = marketService.getAllMarkets();
         List<Map<String, Object>> overview = new ArrayList<>();
 
         for (Market market : markets) {
-            List<MarketStock> availableStock = marketStockRepository.findAvailableStockByMarket(market.getMarketId());
+            List<MarketStock> availableStock = marketService.getAvailableStockByMarket(market.getMarketId());
 
             Map<String, Object> marketInfo = new HashMap<>();
             marketInfo.put("marketId", market.getMarketId());
@@ -102,7 +90,6 @@ public class MarketController {
             marketInfo.put("postalCode", market.getPostalCode());
             marketInfo.put("availableProducts", availableStock.size());
 
-            // Gesamtbestand berechnen
             int totalStock = 0;
             for (MarketStock stock : availableStock) {
                 totalStock += stock.getStock();
@@ -118,21 +105,20 @@ public class MarketController {
     // GET /api/markets/products/{productId} - Bestand eines Produkts in allen Märkten
     @GetMapping("/products/{productId}")
     public ResponseEntity<Map<String, Object>> getProductStockInAllMarkets(@PathVariable Integer productId) {
-        List<MarketStock> allStocks = marketStockRepository.findAllStockForProduct(productId);
+        List<MarketStock> allStocks = marketService.getStockForProduct(productId);
 
-        // Produktinformationen laden
-        Optional<SalesProductEntity> productOpt = salesProductRepository.findById(productId);
-        if (!productOpt.isPresent()) {
+        Optional<SalesProduct> productOpt = marketService.getProduct(productId);
+        if (productOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
-        SalesProductEntity product = productOpt.get();
+        SalesProduct product = productOpt.get();
 
         List<Map<String, Object>> marketAvailability = new ArrayList<>();
         int totalStock = 0;
 
         for (MarketStock stock : allStocks) {
-            Optional<Market> marketOpt = marketRepository.findById(stock.getMarketId());
+            Optional<Market> marketOpt = marketService.getMarket(stock.getMarketId());
             if (marketOpt.isPresent()) {
                 Market market = marketOpt.get();
 
@@ -161,42 +147,17 @@ public class MarketController {
     // GET /api/markets/{marketId}/stock/{productId} - Spezifischer Bestand
     @GetMapping("/{marketId}/stock/{productId}")
     public ResponseEntity<Integer> getSpecificStock(@PathVariable Integer marketId, @PathVariable Integer productId) {
-        Optional<MarketStock> marketStock = marketStockRepository.findByMarketIdAndProductId(marketId, productId);
-
-        if (marketStock.isPresent()) {
-            return ResponseEntity.ok(marketStock.get().getStock());
-        } else {
-            return ResponseEntity.ok(0); // Kein Bestand = 0
-        }
+        Optional<MarketStock> marketStock = marketService.getSpecificStock(marketId, productId);
+        return ResponseEntity.ok(marketStock.map(MarketStock::getStock).orElse(0));
     }
 
-    // Helper Methods
-    private MarketDto convertToDto(Market market) {
-        return new MarketDto(
-                market.getMarketId(),
-                market.getMarketName(),
-                market.getLocation(),
-                market.getPostalCode()
-        );
-    }
-
+    // Helper Method
     private ProductWithMarketStockDto convertToProductWithStockDto(MarketStock marketStock) {
-        Optional<SalesProductEntity> productOpt = salesProductRepository.findById(marketStock.getProductId());
-        Optional<Market> marketOpt = marketRepository.findById(marketStock.getMarketId());
+        Optional<SalesProduct> productOpt = marketService.getProduct(marketStock.getProductId());
+        Optional<Market> marketOpt = marketService.getMarket(marketStock.getMarketId());
 
         if (productOpt.isPresent() && marketOpt.isPresent()) {
-            SalesProductEntity product = productOpt.get();
-            Market market = marketOpt.get();
-
-            return new ProductWithMarketStockDto(
-                    product.getProductId(),
-                    product.getName(),
-                    product.getPrice(),
-                    product.getProductGroupId(),
-                    marketStock.getStock(),
-                    market.getMarketName(),
-                    market.getMarketId()
-            );
+            return MarketApiMapper.convertToProductWithStockDto(marketStock, productOpt.get(), marketOpt.get());
         }
 
         return null;

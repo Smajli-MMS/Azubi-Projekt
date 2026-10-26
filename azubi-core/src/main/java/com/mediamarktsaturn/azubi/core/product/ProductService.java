@@ -1,7 +1,7 @@
 package com.mediamarktsaturn.azubi.core.product;
 
+import com.mediamarktsaturn.azubi.core.product.dto.UpdateProductDto;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
-import com.mediamarktsaturn.azubi.entity.Stock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -13,9 +13,6 @@ public class ProductService {
 
     @Autowired
     private SalesProductRepository salesProductRepository;
-
-    @Autowired
-    private StockRepository stockRepository;
 
     public Optional<SalesProduct> getProductByArticleNumber(Integer id) {
         return salesProductRepository.getSalesProductByArticleNumber(id);
@@ -29,18 +26,23 @@ public class ProductService {
         return salesProductRepository.save(product);
     }
 
-    public Optional<SalesProduct> updateProduct(Integer id, SalesProduct updated) {
+    public Optional<SalesProduct> updateProduct(Integer id, UpdateProductDto updateData) {
         return salesProductRepository.getSalesProductByArticleNumber(id)
-                .map(existing -> {
-                    if (updated.getName() != null) {
-                        existing.setName(updated.getName());
-                    }
-                    if (updated.getCategory() != null) {
-                        existing.setCategory(updated.getCategory());
-                    }
-                    existing.setPrice(updated.getPrice());
-                    return salesProductRepository.save(existing);
-                });
+                .map(existing -> updateSalesProduct(existing, updateData))
+                .map(updated -> salesProductRepository.save(updated));
+    }
+
+    private SalesProduct updateSalesProduct(SalesProduct salesProduct, UpdateProductDto updateData) {
+        if (updateData.getName() != null) {
+            salesProduct.setName(updateData.getName());
+        }
+        if (updateData.getCategory() != null) {
+            salesProduct.setCategory(updateData.getCategory());
+        }
+        if (updateData.getPrice() != null) {
+            salesProduct.setPrice(updateData.getPrice());
+        }
+        return salesProduct;
     }
 
     public boolean deleteProduct(Integer id) {
@@ -49,9 +51,5 @@ public class ProductService {
             return true;
         }
         return false;
-    }
-
-    public Optional<Stock> getStock(Integer productId) {
-        return stockRepository.findByProductId(productId);
     }
 }

@@ -1,4 +1,4 @@
-package com.mediamarktsaturn.azubi.entity;
+package com.mediamarktsaturn.azubi.market.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "market", schema = "relin_uni2")
-public class Market {
+public class MarketEntity {
     @Id
     @Column(name = "marketid")
     private Integer marketId;  // ← Feldname korrigiert
@@ -29,10 +29,10 @@ public class Market {
     @Column(name = "updated")
     private LocalDateTime updated;
 
-    public Market() {
+    public MarketEntity() {
     }
 
-    public Market(String marketName, String location, String postalCode) {
+    public MarketEntity(String marketName, String location, String postalCode) {
         this.marketName = marketName;
         this.location = location;
         this.postalCode = postalCode;

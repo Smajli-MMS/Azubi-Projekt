@@ -1,6 +1,6 @@
 package com.mediamarktsaturn.azubi.product;
 
-import com.mediamarktsaturn.azubi.Category;
+import com.mediamarktsaturn.azubi.core.product.model.Category;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
 import com.mediamarktsaturn.azubi.product.entity.SalesProductEntity;
 

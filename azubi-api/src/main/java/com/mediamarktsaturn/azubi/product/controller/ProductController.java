@@ -1,9 +1,12 @@
 package com.mediamarktsaturn.azubi.product.controller;
 
 import com.mediamarktsaturn.azubi.core.product.ProductService;
+import com.mediamarktsaturn.azubi.core.product.dto.UpdateProductDto;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
-import com.mediamarktsaturn.azubi.entity.Stock;
+import com.mediamarktsaturn.azubi.core.stock.StockService;
+import com.mediamarktsaturn.azubi.core.stock.model.Stock;
 import com.mediamarktsaturn.azubi.product.model.ProductApiDto;
+import com.mediamarktsaturn.azubi.product.model.UpdateProductApiRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,9 +21,11 @@ import java.util.stream.Collectors;
 public class ProductController {
 
     private final ProductService productService;
+    private final StockService stockService;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, StockService stockService) {
         this.productService = productService;
+        this.stockService = stockService;
     }
 
     // GET /api/products/{id} - Product by ID
@@ -32,17 +37,16 @@ public class ProductController {
 
         Optional<SalesProduct> product = productService.getProductByArticleNumber(id);
 
-        if (product.isPresent()) {
-            return ResponseEntity.ok(enrichWithStock(product.get()));
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        return product
+                .map(salesProduct -> ResponseEntity.ok(enrichWithStock(salesProduct)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // GET /api/products - All Products
     @GetMapping
     public ResponseEntity<List<ProductApiDto>> getAllProducts() {
-        List<ProductApiDto> dtos = productService.getAllProducts().stream()
+        List<ProductApiDto> dtos = productService.getAllProducts()
+                .stream()
                 .map(ProductApiMapper::convertToDto)
                 .collect(Collectors.toList());
 
@@ -64,10 +68,10 @@ public class ProductController {
     // PUT /api/products/{id} - Update existing Product
     @PutMapping("/{id}")
     public ResponseEntity<ProductApiDto> updateProduct(@PathVariable Integer id,
-                                                       @RequestBody ProductApiDto productApiDto) {
-        SalesProduct domain = ProductApiMapper.convertToDomain(productApiDto);
+                                                       @RequestBody UpdateProductApiRequest updateProductRequest) {
+        UpdateProductDto dto = ProductApiMapper.convertToDomain(updateProductRequest);
 
-        return productService.updateProduct(id, domain)
+        return productService.updateProduct(id, dto)
                 .map(updated -> ResponseEntity.ok(ProductApiMapper.convertToDto(updated)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -81,7 +85,7 @@ public class ProductController {
             return ResponseEntity.notFound().build();
         }
 
-        Optional<Stock> stock = productService.getStock(id);
+        Optional<Stock> stock = stockService.getStockByProductId(id);
 
         StockResponse response = new StockResponse();
         response.setProductId(id);
@@ -99,13 +103,15 @@ public class ProductController {
         if (!deleted) {
             return ResponseEntity.notFound().build();
         }
+
         return ResponseEntity.ok().build();
     }
 
     // GET /api/products/with-stock - Alle Produkte mit Bestandsinfo
     @GetMapping("/with-stock")
     public ResponseEntity<List<ProductApiDto>> getAllProductsWithStock() {
-        List<ProductApiDto> dtos = productService.getAllProducts().stream()
+        List<ProductApiDto> dtos = productService.getAllProducts()
+                .stream()
                 .map(this::enrichWithStock)
                 .collect(Collectors.toList());
 
@@ -115,7 +121,7 @@ public class ProductController {
     private ProductApiDto enrichWithStock(SalesProduct product) {
         ProductApiDto dto = ProductApiMapper.convertToDto(product);
 
-        productService.getStock(product.getId()).ifPresentOrElse(
+        stockService.getStockByProductId(product.getId()).ifPresentOrElse(
                 stock -> {
                     dto.setStockQuantity(stock.getStock());
                     dto.setStockLastChange(stock.getLastChange());

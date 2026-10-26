@@ -1,22 +1,26 @@
-package com.mediamarktsaturn.azubi.dto;
+package com.mediamarktsaturn.azubi.core.market.model;
 
-public class MarketDto {
+import java.time.LocalDateTime;
+
+public class Market {
     private Integer marketId;
     private String marketName;
     private String location;
     private String postalCode;
+    private LocalDateTime created;
+    private LocalDateTime updated;
 
-    public MarketDto() {
+    public Market() {
     }
 
-    public MarketDto(Integer marketId, String marketName, String location, String postalCode) {
-        this.marketId = marketId;
+    public Market(String marketName, String location, String postalCode) {
         this.marketName = marketName;
         this.location = location;
         this.postalCode = postalCode;
+        this.created = LocalDateTime.now();
+        this.updated = LocalDateTime.now();
     }
 
-    // Getters und Setters
     public Integer getMarketId() {
         return marketId;
     }
@@ -47,5 +51,21 @@ public class MarketDto {
 
     public void setPostalCode(String postalCode) {
         this.postalCode = postalCode;
+    }
+
+    public LocalDateTime getCreated() {
+        return created;
+    }
+
+    public void setCreated(LocalDateTime created) {
+        this.created = created;
+    }
+
+    public LocalDateTime getUpdated() {
+        return updated;
+    }
+
+    public void setUpdated(LocalDateTime updated) {
+        this.updated = updated;
     }
 }

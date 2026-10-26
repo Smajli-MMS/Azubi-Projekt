@@ -1,4 +1,4 @@
-package com.mediamarktsaturn.azubi.dto;
+package com.mediamarktsaturn.azubi.market.model;
 
 import java.util.List;
 
