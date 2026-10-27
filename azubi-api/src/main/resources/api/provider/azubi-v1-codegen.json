@@ -1,0 +1,14 @@
+{
+  "apiPackage": "com.mediamarktsaturn.azubi.generated.api",
+  "modelPackage": "com.mediamarktsaturn.azubi.generated.model",
+  "interfaceOnly": true,
+  "skipDefaultInterface": true,
+  "useTags": true,
+  "useSpringBoot3": true,
+  "useBeanValidation": false,
+  "annotationLibrary": "none",
+  "documentationProvider": "none",
+  "openApiNullable": false,
+  "dateLibrary": "java8-localdatetime",
+  "hideGenerationTimestamp": true
+}

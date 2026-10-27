@@ -5,8 +5,7 @@ import com.mediamarktsaturn.azubi.core.market.model.MarketStock;
 import com.mediamarktsaturn.azubi.core.product.model.Category;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
 import com.mediamarktsaturn.azubi.generated.model.MarketApiResponseDTO;
-import com.mediamarktsaturn.azubi.market.model.ProductWithMarketStockDto;
-
+import com.mediamarktsaturn.azubi.generated.model.ProductWithMarketStockDTO;
 import java.math.BigDecimal;
 
 public class MarketApiMapper {
@@ -19,18 +18,17 @@ public class MarketApiMapper {
                 .postalCode(market.getPostalCode());
     }
 
-    public static ProductWithMarketStockDto convertToProductWithStockDto(
+    public static ProductWithMarketStockDTO convertToProductWithStockDto(
             MarketStock marketStock, SalesProduct product, Market market) {
 
-        return new ProductWithMarketStockDto(
-                product.getId(),
-                product.getName(),
-                BigDecimal.valueOf(product.getPrice()),
-                mapCategoryToProductGroup(product.getCategory()),
-                marketStock.getStock(),
-                market.getMarketName(),
-                market.getMarketId()
-        );
+        return new ProductWithMarketStockDTO()
+                .productId(product.getId())
+                .name(product.getName())
+                .price(BigDecimal.valueOf(product.getPrice()))
+                .productGroupId(mapCategoryToProductGroup(product.getCategory()))
+                .stock(marketStock.getStock())
+                .marketName(market.getMarketName())
+                .marketId(market.getMarketId());
     }
 
     private static Integer mapCategoryToProductGroup(Category category) {
