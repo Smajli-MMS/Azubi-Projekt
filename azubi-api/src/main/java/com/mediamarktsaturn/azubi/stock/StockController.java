@@ -2,27 +2,27 @@ package com.mediamarktsaturn.azubi.stock;
 
 import com.mediamarktsaturn.azubi.core.stock.StockService;
 import com.mediamarktsaturn.azubi.core.stock.model.Stock;
-import com.mediamarktsaturn.azubi.stock.model.StockApiResponse;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
+import com.mediamarktsaturn.azubi.generated.api.StockApi;
+import com.mediamarktsaturn.azubi.generated.model.StockApiResponseDTO;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.RestController;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
-@RequestMapping("/api/stock")
-public class StockController {
+public class StockController implements StockApi {
 
-    private StockService stockService;
+    private final StockService stockService;
 
     public StockController(StockService stockService) {
         this.stockService = stockService;
     }
 
     // GET /api/stock - Alle Bestände abrufen
-    @GetMapping
-    public ResponseEntity<List<StockApiResponse>> getAllStock() {
+    @Override
+    public ResponseEntity<List<StockApiResponseDTO>> getAllStock() {
 
         List<Stock> stocks = stockService.getAllStock();
 
@@ -34,9 +34,9 @@ public class StockController {
     }
 
     // GET /api/stock/{productId}
-    @GetMapping("/{productId}")
-    public ResponseEntity<StockApiResponse> getStockByProductId(
-            @PathVariable Integer productId) {
+    @Override
+    public ResponseEntity<StockApiResponseDTO> getStockByProductId(
+            Integer productId) {
 
         Optional<Stock> stock = stockService.getStockByProductId(productId);
 
@@ -46,9 +46,9 @@ public class StockController {
     }
 
     // GET /api/stock/low-stock?threshold=10
-    @GetMapping("/low-stock")
-    public ResponseEntity<List<StockApiResponse>> getLowStock(
-            @RequestParam(defaultValue = "10") Integer threshold) {
+    @Override
+    public ResponseEntity<List<StockApiResponseDTO>> getLowStock(
+            Integer threshold) {
 
         List<Stock> stocks = stockService.getLowStock(threshold);
 
@@ -60,8 +60,8 @@ public class StockController {
     }
 
     // GET /api/stock/available
-    @GetMapping("/available")
-    public ResponseEntity<List<StockApiResponse>> getAvailableStock() {
+    @Override
+    public ResponseEntity<List<StockApiResponseDTO>> getAvailableStock() {
 
         List<Stock> stocks = stockService.getAvailableStock();
 
@@ -72,11 +72,10 @@ public class StockController {
         return ResponseEntity.ok(response);
     }
 
-    private StockApiResponse convertToDto(Stock stock) {
-        return new StockApiResponse(
-                stock.getProductId(),
-                stock.getStock(),
-                stock.getLastChange()
-        );
+    private StockApiResponseDTO convertToDto(Stock stock) {
+        return new StockApiResponseDTO()
+                .productId(stock.getProductId())
+                .stock(stock.getStock())
+                .lastChange(stock.getLastChange());
     }
 }

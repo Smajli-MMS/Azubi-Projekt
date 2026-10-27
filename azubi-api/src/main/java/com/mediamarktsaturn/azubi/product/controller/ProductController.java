@@ -5,20 +5,21 @@ import com.mediamarktsaturn.azubi.core.product.dto.UpdateProductDto;
 import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
 import com.mediamarktsaturn.azubi.core.stock.StockService;
 import com.mediamarktsaturn.azubi.core.stock.model.Stock;
-import com.mediamarktsaturn.azubi.product.model.ProductApiDto;
-import com.mediamarktsaturn.azubi.product.model.UpdateProductApiRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
+import com.mediamarktsaturn.azubi.generated.api.ProductsApi;
+import com.mediamarktsaturn.azubi.generated.model.ProductApiDTO;
+import com.mediamarktsaturn.azubi.generated.model.ProductStockResponseDTO;
+import com.mediamarktsaturn.azubi.generated.model.UpdateProductApiRequestDTO;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.RestController;
 
 @CrossOrigin(origins = "http://localhost:3000")
 @RestController
-@RequestMapping("/api/products")
-public class ProductController {
+public class ProductController implements ProductsApi {
 
     private final ProductService productService;
     private final StockService stockService;
@@ -29,8 +30,8 @@ public class ProductController {
     }
 
     // GET /api/products/{id} - Product by ID
-    @GetMapping("/{id}")
-    public ResponseEntity<ProductApiDto> getProductById(@PathVariable Integer id) {
+    @Override
+    public ResponseEntity<ProductApiDTO> getProductById(Integer id) {
         if (id < 0) {
             throw new IllegalArgumentException("Product id must be greater than 0");
         }
@@ -43,9 +44,9 @@ public class ProductController {
     }
 
     // GET /api/products - All Products
-    @GetMapping
-    public ResponseEntity<List<ProductApiDto>> getAllProducts() {
-        List<ProductApiDto> dtos = productService.getAllProducts()
+    @Override
+    public ResponseEntity<List<ProductApiDTO>> getAllProducts() {
+        List<ProductApiDTO> dtos = productService.getAllProducts()
                 .stream()
                 .map(ProductApiMapper::convertToDto)
                 .collect(Collectors.toList());
@@ -54,8 +55,8 @@ public class ProductController {
     }
 
     // POST /api/products - Create new Product
-    @PostMapping
-    public ResponseEntity<ProductApiDto> createProduct(@RequestBody ProductApiDto productApiDto) {
+    @Override
+    public ResponseEntity<ProductApiDTO> createProduct(ProductApiDTO productApiDto) {
         try {
             SalesProduct domain = ProductApiMapper.convertToDomain(productApiDto);
             SalesProduct saved = productService.createProduct(domain);
@@ -66,9 +67,9 @@ public class ProductController {
     }
 
     // PUT /api/products/{id} - Update existing Product
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductApiDto> updateProduct(@PathVariable Integer id,
-                                                       @RequestBody UpdateProductApiRequest updateProductRequest) {
+    @Override
+    public ResponseEntity<ProductApiDTO> updateProduct(Integer id,
+                                                       UpdateProductApiRequestDTO updateProductRequest) {
         UpdateProductDto dto = ProductApiMapper.convertToDomain(updateProductRequest);
 
         return productService.updateProduct(id, dto)
@@ -77,8 +78,8 @@ public class ProductController {
     }
 
     // GET /api/products/{id}/stock - Stock value for Product
-    @GetMapping("/{id}/stock")
-    public ResponseEntity<StockResponse> getProductStock(@PathVariable Integer id) {
+    @Override
+    public ResponseEntity<ProductStockResponseDTO> getProductStock(Integer id) {
         Optional<SalesProduct> product = productService.getProductByArticleNumber(id);
 
         if (product.isEmpty()) {
@@ -87,7 +88,7 @@ public class ProductController {
 
         Optional<Stock> stock = stockService.getStockByProductId(id);
 
-        StockResponse response = new StockResponse();
+        ProductStockResponseDTO response = new ProductStockResponseDTO();
         response.setProductId(id);
         response.setProductName(product.get().getName());
         response.setStock(stock.map(Stock::getStock).orElse(0));
@@ -96,8 +97,8 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Integer id) {
+    @Override
+    public ResponseEntity<Void> deleteProduct(Integer id) {
         boolean deleted = productService.deleteProduct(id);
 
         if (!deleted) {
@@ -108,9 +109,9 @@ public class ProductController {
     }
 
     // GET /api/products/with-stock - Alle Produkte mit Bestandsinfo
-    @GetMapping("/with-stock")
-    public ResponseEntity<List<ProductApiDto>> getAllProductsWithStock() {
-        List<ProductApiDto> dtos = productService.getAllProducts()
+    @Override
+    public ResponseEntity<List<ProductApiDTO>> getAllProductsWithStock() {
+        List<ProductApiDTO> dtos = productService.getAllProducts()
                 .stream()
                 .map(this::enrichWithStock)
                 .collect(Collectors.toList());
@@ -118,57 +119,18 @@ public class ProductController {
         return ResponseEntity.ok(dtos);
     }
 
-    private ProductApiDto enrichWithStock(SalesProduct product) {
-        ProductApiDto dto = ProductApiMapper.convertToDto(product);
+    private ProductApiDTO enrichWithStock(SalesProduct product) {
+        ProductApiDTO dto = ProductApiMapper.convertToDto(product);
 
         stockService.getStockByProductId(product.getId()).ifPresentOrElse(
                 stock -> {
-                    dto.setStockQuantity(stock.getStock());
+                    ProductApiMapper.setStockQuantity(dto, stock.getStock());
                     dto.setStockLastChange(stock.getLastChange());
                 },
-                () -> dto.setStockQuantity(0)
+                () -> ProductApiMapper.setStockQuantity(dto, 0)
         );
 
         return dto;
     }
 
-    // Inner class for Stock Response
-    public static class StockResponse {
-        private Integer productId;
-        private String productName;
-        private Integer stock;
-        private java.time.LocalDateTime lastChange;
-
-        public Integer getProductId() {
-            return productId;
-        }
-
-        public void setProductId(Integer productId) {
-            this.productId = productId;
-        }
-
-        public String getProductName() {
-            return productName;
-        }
-
-        public void setProductName(String productName) {
-            this.productName = productName;
-        }
-
-        public Integer getStock() {
-            return stock;
-        }
-
-        public void setStock(Integer stock) {
-            this.stock = stock;
-        }
-
-        public java.time.LocalDateTime getLastChange() {
-            return lastChange;
-        }
-
-        public void setLastChange(java.time.LocalDateTime lastChange) {
-            this.lastChange = lastChange;
-        }
-    }
 }
