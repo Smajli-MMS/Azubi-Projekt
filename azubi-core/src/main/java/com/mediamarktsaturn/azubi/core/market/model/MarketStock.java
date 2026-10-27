@@ -1,11 +1,7 @@
 package com.mediamarktsaturn.azubi.core.market.model;
 
-import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "marketstock", schema = "relin_uni2")
 public class MarketStock {
 
     private Integer marketId;
