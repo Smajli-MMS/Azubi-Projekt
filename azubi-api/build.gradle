@@ -1,5 +1,8 @@
+import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
+
 plugins {
     id 'java'
+    id 'org.openapi.generator' version '7.12.0'
 }
 
 group = 'xcc.mediamarktsaturn'
@@ -10,12 +13,69 @@ repositories {
 }
 
 dependencies {
+    implementation project(':azubi-core')
 
-    implementation project(":azubi-core")
+    // Der Generator importiert diese API auch bei useBeanValidation=false.
+    compileOnly 'jakarta.validation:jakarta.validation-api'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def azubiApiSpec = layout.projectDirectory.file(
+        'src/main/resources/api/provider/azubi-api-v1-spec.yaml'
+)
+def azubiApiCodegenConfig = layout.projectDirectory.file(
+        'src/main/resources/api/provider/azubi-v1-codegen.json'
+)
+def generatedAzubiApiDir = layout.buildDirectory.dir('open-api/azubi')
+
+def generateAzubiApi = tasks.register('generateAzubiApi', GenerateTask) {
+    group = 'openapi tools'
+    description = 'Generiert Spring-API-Interfaces und DTOs fuer Produkte, Maerkte und Bestaende.'
+
+    inputSpec.set(azubiApiSpec.asFile.absolutePath)
+    outputDir.set(generatedAzubiApiDir.get().asFile.absolutePath)
+    configFile.set(azubiApiCodegenConfig.asFile.absolutePath)
+
+    generatorName.set('spring')
+    modelNameSuffix.set('DTO')
+    validateSpec.set(true)
+
+    // Nur Vertragstypen; keine zweiten Controller und keine neue Anwendung.
+    globalProperties.set([
+            apis           : '',
+            models         : '',
+            supportingFiles: 'false',
+            apiTests       : 'false',
+            modelTests     : 'false',
+            apiDocs        : 'false',
+            modelDocs      : 'false'
+    ])
+
+    inputs.file(azubiApiSpec)
+    inputs.file(azubiApiCodegenConfig)
+}
+
+sourceSets.main.java.srcDir(
+        generatedAzubiApiDir.map { it.dir('src/main/java') }
+)
+
+tasks.named('compileJava') {
+    dependsOn(generateAzubiApi)
+}
+
+openApiValidate {
+    inputSpec.set(azubiApiSpec.asFile.absolutePath)
+}
+
+// Dieselbe Spezifikation fuer Swagger UI bereitstellen, ohne zweite YAML-Kopie.
+tasks.named('processResources') {
+    from(azubiApiSpec) {
+        into 'static'
+        rename { 'api-spec.yaml' }
+    }
 }
 
 test {

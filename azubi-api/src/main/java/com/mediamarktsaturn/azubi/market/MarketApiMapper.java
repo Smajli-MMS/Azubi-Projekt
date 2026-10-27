@@ -1,23 +1,22 @@
 package com.mediamarktsaturn.azubi.market;
 
-import com.mediamarktsaturn.azubi.core.product.model.Category;
 import com.mediamarktsaturn.azubi.core.market.model.Market;
-import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
-import com.mediamarktsaturn.azubi.market.model.MarketApiResponse;
-import com.mediamarktsaturn.azubi.market.model.ProductWithMarketStockDto;
 import com.mediamarktsaturn.azubi.core.market.model.MarketStock;
+import com.mediamarktsaturn.azubi.core.product.model.Category;
+import com.mediamarktsaturn.azubi.core.product.model.SalesProduct;
+import com.mediamarktsaturn.azubi.generated.model.MarketApiResponseDTO;
+import com.mediamarktsaturn.azubi.market.model.ProductWithMarketStockDto;
 
 import java.math.BigDecimal;
 
 public class MarketApiMapper {
 
-    public static MarketApiResponse convertToDto(Market market) {
-        return new MarketApiResponse(
-                market.getMarketId(),
-                market.getMarketName(),
-                market.getLocation(),
-                market.getPostalCode()
-        );
+    public static MarketApiResponseDTO convertToDto(Market market) {
+        return new MarketApiResponseDTO()
+                .marketId(market.getMarketId())
+                .marketName(market.getMarketName())
+                .location(market.getLocation())
+                .postalCode(market.getPostalCode());
     }
 
     public static ProductWithMarketStockDto convertToProductWithStockDto(
