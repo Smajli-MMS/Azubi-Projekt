@@ -1,0 +1,43 @@
+name: Backend CI
+
+# Check changes before merging and check main again after a push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: OpenAPI, Build und Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Java 21 einrichten
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: OpenAPI-Spezifikation validieren
+        run: bash ./gradlew --no-daemon --console=plain :azubi-api:openApiValidate
+
+      # compileJava generates the OpenAPI interfaces/DTOs automatically.
+      # bash also works when gradlew was committed from Windows without +x.
+      - name: Alle Module bauen und Tests ausführen
+        run: bash ./gradlew --no-daemon --console=plain build
