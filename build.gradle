@@ -17,6 +17,11 @@ dependencyManagement {
 group = 'xcc.mediamarktsaturn'
 version = '1.0-SNAPSHOT'
 
+// The root aggregates modules; it is not an executable application.
+tasks.named('jar') {
+    enabled = false
+}
+
 repositories {
     mavenCentral()
 }

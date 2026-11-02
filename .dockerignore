@@ -1,0 +1,6 @@
+# Only the executable JAR is needed in the build context.
+**
+!azubi-application/
+!azubi-application/build/
+!azubi-application/build/libs/
+!azubi-application/build/libs/relin.jar
