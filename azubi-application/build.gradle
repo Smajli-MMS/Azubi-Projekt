@@ -6,6 +6,19 @@ plugins {
 group = 'xcc.mediamarktsaturn'
 version = '1.0-SNAPSHOT'
 
+springBoot {
+    mainClass = 'com.mediamarktsaturn.azubi.RelinApplication'
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'relin.jar'
+}
+
+// Only the executable Boot JAR is useful for this application module.
+tasks.named('jar') {
+    enabled = false
+}
+
 repositories {
     mavenCentral()
 }
