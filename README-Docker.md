@@ -26,8 +26,10 @@ Die leere Root-JAR und die zusätzliche normale Application-JAR werden nicht meh
 Die JARs der Bibliotheksmodule bleiben für die Modulabhängigkeiten erhalten.
 `clean` entfernt alte JARs, damit sie nicht versehentlich gestartet werden.
 
-## 2. Docker lokal
+## 2. Docker lokal (optional)
 
+Dieser Abschnitt gilt nur für Rechner, auf denen Docker erlaubt und installiert ist.
+Auf dem Firmenlaptop ist keine Docker- oder WSL-Installation erforderlich.
 Docker Desktop muss gestartet sein (Linux-Container). Zuerst die JAR bauen,
 dann im Hauptverzeichnis:
 
@@ -54,6 +56,33 @@ Flyway läuft beim Anwendungsstart gegen die konfigurierte Datenbank.
 Das Dockerfile verwendet Java 21 auf Alpine, kopiert ausschließlich relin.jar,
 läuft als Benutzer spring und startet mit java -jar /app/app.jar.
 Das Image enthält keine PostgreSQL-Instanz.
+
+## 3. Docker-Build und Upload in GitHub Actions
+
+Der Workflow läuft auf ubuntu-latest bei GitHub. Dein Laptop braucht kein WSL
+und kein Docker. Nach erfolgreichen OpenAPI-Prüfungen, Build und Tests wird nur
+bei einem Push auf main (auch nach einem PR-Merge) das Image gebaut und zu
+Docker Hub hochgeladen. PRs und manuelle Starts überspringen diese Schritte.
+Der Docker-Build übernimmt die zuvor im selben Job erzeugte relin.jar.
+Ein Container-Laufzeittest ist nicht enthalten.
+
+Vor dem Merge einrichten:
+
+1. Einen eigenen Account auf https://hub.docker.com/ erstellen.
+2. Dort ein Repository namens azubi-projekt unter deinem Benutzernamen anlegen.
+3. Einen Docker-Hub-Access-Token mit Lese- und Schreibrechten erstellen.
+4. Auf GitHub unter Settings > Secrets and variables > Actions:
+   - Unter Variables: DOCKERHUB_USERNAME = dein Docker-Hub-Benutzername.
+   - Unter Secrets: DOCKERHUB_TOKEN = dein Access-Token.
+
+Kein Passwort oder Token in den Code eintragen. Der Docker-Hub-Token ist nicht
+identisch mit deinem PostgreSQL-Passwort. Für den Image-Build ist keine Datenbank
+nötig. Ohne die oben genannten Einstellungen schlägt die Anmeldung fehl.
+
+Die veröffentlichten Tags heißen BENUTZERNAME/azubi-projekt:latest und
+BENUTZERNAME/azubi-projekt:sha-COMMIT_SHA. Den Lauf findest du unter Actions >
+Backend CI. Das Image erscheint anschließend in deinem Docker-Hub-Repository.
+Die erste tatsächliche Veröffentlichung erfolgt nach dem Merge auf main.
 
 ## Validierung
 
