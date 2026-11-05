@@ -45,3 +45,4 @@ bin/
 # Local database credentials
 .env
 .env.local
+.env.compose
