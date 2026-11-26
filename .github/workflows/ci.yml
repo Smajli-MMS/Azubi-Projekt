@@ -43,6 +43,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Automatischen Backend-Updater testen
+        run: python3 -m unittest discover -s tests -v
+
       - name: Java 21 einrichten
         uses: actions/setup-java@v5
         with:

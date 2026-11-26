@@ -1,0 +1,19 @@
+[Unit]
+Description=Relin backend stable-version updater
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=smajliensar7
+WorkingDirectory=/home/smajliensar7/Azubi-Projekt
+ExecStart=/usr/bin/python3 -u /home/smajliensar7/Azubi-Projekt/scripts/update_backend.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=650
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
