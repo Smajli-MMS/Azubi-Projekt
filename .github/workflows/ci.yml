@@ -43,8 +43,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Automatischen Backend-Updater testen
+      - name: Automatischen Backend- und Frontend-Updater testen
         run: python3 -m unittest discover -s tests -v
+
+      - name: Gemeinsame Compose-Konfiguration prüfen
+        env:
+          POSTGRES_PASSWORD: configuration-check-only
+          BACKEND_TAG: '1.0.0'
+          FRONTEND_TAG: '1.0.0'
+        run: docker compose --env-file .env.compose.example config --quiet
+
+      - name: Host-Nginx-Konfiguration prüfen
+        run: docker run --rm -v "$PWD/deploy/nginx/relin.conf:/etc/nginx/conf.d/default.conf:ro" nginx:stable-alpine nginx -t
 
       - name: Java 21 einrichten
         uses: actions/setup-java@v5

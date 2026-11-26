@@ -1,148 +1,91 @@
-# Automatische Updates auf stabile Versionen
+# Automatische Updates für Backend und Frontend
 
-Ein Git-Tag wie `1.0.1` startet die CI. Erst nach erfolgreichen Prüfungen wird
-`ensarsmajli/azubi-projekt:1.0.1` auf Docker Hub veröffentlicht. Der Updater
-prüft direkt die veröffentlichten Registry-Tags und berücksichtigt ausschließlich
-stabile Versionen im Format MAJOR.MINOR.PATCH ohne führende Nullen und ohne v-Präfix.
-Vorabversionen, Build-Metadaten, latest und SHA-Tags werden ignoriert.
-Der Vergleich ist numerisch: 1.10.0 ist höher als 1.9.0. Auch höhere Major-Versionen
-werden automatisch installiert; Releases müssen deshalb für den Server geeignet sein.
-Ein schon veröffentlichtes Versions-Tag darf nicht mit anderem Inhalt überschrieben
-werden. Änderungen bekommen immer eine höhere Versionsnummer.
+Die Installationsreihenfolge steht in [README-Deployment.md](README-Deployment.md).
+Solange kein SSH-Zugriff besteht, werden PRs, CI und Images vorbereitet. Ein Merge
+installiert keinen Dienst auf der VM.
 
-## Einrichtung auf der bestehenden Trainings-VM
+| Service | Docker-Hub-Repository | Variable | Bereitschaftsprüfung |
+| --- | --- | --- | --- |
+| backend | ensarsmajli/azubi-projekt | BACKEND_TAG | localhost:8080/api/markets liefert JSON-Liste |
+| frontend | ensarsmajli/own-webshop-frontend | FRONTEND_TAG | localhost:8082 liefert React und /api/markets eine JSON-Liste |
 
-Diese Befehle sind für den Benutzer `smajliensar7` und das Verzeichnis
-`/home/smajliensar7/Azubi-Projekt` vorbereitet. Bei anderen Benutzern/Pfaden müssen
-User, WorkingDirectory und ExecStart in deploy/relin-updater.service angepasst werden.
-Python 3, CA-Zertifikate, Docker und das Compose-Plugin müssen installiert sein.
-Der Benutzer muss Docker ohne sudo ausführen dürfen, wie beim bisherigen Compose-Start.
-
-Nach dem Merge des PRs im SSH-Terminal:
-
-```sh
-cd ~/Azubi-Projekt
-git pull --ff-only origin main
-python3 --version
-docker compose version
-grep '^BACKEND_TAG=' .env.compose
-docker compose --env-file .env.compose config --quiet
-docker compose --env-file .env.compose ps
-python3 scripts/update_backend.py --check
-```
-
-BACKEND_TAG muss bereits auf `1.0.0` oder einer anderen veröffentlichten stabilen
-Version stehen. Der laufende Container muss dazu passen. Die vorhandene private
-Datei .env.compose mit dem Datenbankpasswort wird beim Pull nicht überschrieben.
-Das Skript verwendet die vorhandene Docker-Anmeldung desselben Benutzers aus
-~/.docker/config.json oder dem dort konfigurierten Credential Helper.
-Falls der Zugriff fehlschlägt, als dieser Benutzer erneut anmelden:
-
-```sh
-docker login --username ensarsmajli
-```
-
-Den persönlichen Docker-Hub-Token am Passwort-Prompt eingeben. Keinen Token in
-Skript oder Service-Datei schreiben. `--check` prüft einmal, ohne Container oder
-Versionskonfiguration zu ändern. Es wird lediglich die lokale Sperrdatei angelegt.
-
-Wenn der Check erfolgreich ist, den Dienst installieren und aktivieren:
-
-```sh
-sudo install -m 644 deploy/relin-updater.service /etc/systemd/system/relin-updater.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now relin-updater.service
-sudo systemctl status relin-updater.service --no-pager
-sudo journalctl -u relin-updater.service -n 30 --no-pager
-```
-
-`enable` aktiviert den Start beim Hochfahren, `--now` startet den Dienst sofort.
-Der Dienst läuft unter dem bisherigen Docker-Benutzer und verwendet dessen
-Docker-Anmeldung. Das Python-Skript benötigt keine zusätzlichen pip-Pakete.
-Einmal installiert, lädt dieser Dienst nicht selbst den Quellcode von GitHub:
-Spätere Änderungen am Updater müssen separat per git pull übernommen und mit
-`sudo systemctl restart relin-updater.service` aktiviert werden.
+Beide GitHub-Repositories veröffentlichen ihre eigenen Versionen. Ein Frontend-Tag
+ändert die Backend-Version nicht. Das Skript fragt tatsächlich veröffentlichte
+Registry-Tags ab: Ein Git-Tag ohne erfolgreiches Image genügt nicht. Erlaubt sind
+stabile MAJOR.MINOR.PATCH-Versionen ohne v-Präfix, Vorabversion, Build-Metadaten
+oder führende Nullen. 1.10.0 ist höher als 1.9.0. Höhere Major-Versionen werden
+ebenfalls installiert. Veröffentlichte Versionen nicht überschreiben.
 
 ## Ablauf
 
-1. Compose-Konfiguration und laufende Image-Version prüfen. Bei Abweichungen wird
-   kein Update ausgeführt; die Versionen müssen zuerst manuell abgeglichen werden.
-2. Docker-Hub-Authentifizierung und alle Seiten der Registry-Tagliste abrufen.
-3. Die höchste stabile Version auswählen, sofern sie höher als BACKEND_TAG ist.
-4. Das neue Backend-Image herunterladen. Bei Downloadfehlern läuft der alte Container weiter.
-5. Nur den Backend-Container mit Compose neu erstellen. PostgreSQL wird nicht neu erstellt.
-6. Bis zu fünf Minuten auf eine gültige Antwort von /api/markets auf Port 8080 warten.
-7. Bei Erfolg BACKEND_TAG atomar in .env.compose speichern, mit Dateirechten 0600.
-   Passwort und andere Einstellungen bleiben erhalten. Bei einem Fehler wird versucht,
-   den vorherigen Backend-Container wiederherzustellen.
-8. Zehn Sekunden warten, dann erneut prüfen. Während Download und Start läuft kein
-   zweiter Check. Netzwerkfehler werden beim nächsten Durchlauf erneut versucht.
+scripts/update_backend.py behält seinen Namen, unterstützt aber beide Services.
+So bleibt der Einstiegspunkt einer vorhandenen Service-Datei gültig. Der Dienst
+relin-updater prüft zuerst backend, danach frontend:
 
-Die Container-Neuerstellung verursacht eine kurze Unterbrechung. Auf der kleinen
-Trainings-VM kann der Spring-Boot-Start mehrere Minuten dauern. Der Updater prüft
-die Anwendung direkt; die separate Nginx-Prüfung erfolgt über Port 80.
-Eine Sperrdatei verhindert parallele Updater. Bei Registry-Fehlern werden keine
-Versionen geändert. Wiederholt fehlgeschlagene Releases werden erneut versucht;
-den Dienst zur Untersuchung stoppen. Das Wiederherstellen des alten Images macht
-keine Datenbankmigration rückgängig: Migrationen müssen rückwärtskompatibel sein.
-Nach einer Unterbrechung während eines Deployments gegebenenfalls laufendes Image
-und BACKEND_TAG manuell abgleichen, bevor der Dienst wieder aktiviert wird.
+1. Konfigurierte und laufende Image-Version abgleichen.
+2. Registry mit der vorhandenen Docker-Anmeldung abfragen, einschließlich aller Tag-Seiten.
+3. Die höchste stabile Version auswählen, sofern sie höher als die aktuelle ist.
+4. Nur das betroffene Image herunterladen und nur diesen Container neu erstellen.
+5. Bis zu fünf Minuten auf die jeweilige Bereitschaftsprüfung warten.
+6. Erst bei Erfolg die zugehörige Versionsvariable atomar in .env.compose speichern.
+   Die andere Versionsvariable und das Passwort bleiben erhalten; Dateirechte 0600.
+7. Bei Startfehlern versuchen, den vorherigen Container desselben Services wiederherzustellen.
+8. Nach dem Durchlauf zehn Sekunden warten. Downloads und Starts laufen seriell
+   und können länger dauern. Ein Service-Fehler verhindert die Prüfung des anderen nicht.
 
-## Ersten automatischen Wechsel gemeinsam testen
+Eine Sperrdatei verhindert parallele Updater. Exportierte BACKEND_TAG- und
+FRONTEND_TAG-Variablen werden ignoriert; maßgeblich ist die private .env.compose.
+Bei einer Abweichung zwischen laufendem Image und eingestellter Version wird für
+diesen Service kein Update ausgeführt. Den Zustand zuerst manuell abgleichen.
 
-Auf dem Laptop im aktuellen Backend-Projekt nach erfolgreichem Merge und Pull:
+## Aufrufe nach der späteren Servereinrichtung
 
 ```sh
-git switch main
-git pull --ff-only origin main
-git tag -a 1.0.1 -m "Release 1.0.1"
-git push origin 1.0.1
+# Ohne Container oder Versionsdatei zu ändern:
+python3 scripts/update_backend.py --check
+python3 scripts/update_backend.py --check --service frontend
+# Einmalig prüfen und bei Bedarf aktualisieren:
+python3 scripts/update_backend.py --once --service backend
+# Dauerbetrieb für beide Services, normalerweise über systemd:
+python3 scripts/update_backend.py
 ```
 
-Nur verwenden, wenn 1.0.1 noch nicht existiert; sonst eine höhere freie Version wählen.
-In GitHub Actions den erfolgreichen Build und Docker-Push abwarten. Danach auf der VM:
+Vor manuellen Aufrufen einen laufenden Updater stoppen, sonst blockiert die
+Sperrdatei den zweiten Prozess. --check legt nur diese Sperrdatei an.
 
 ```sh
-sudo journalctl -u relin-updater.service -f
+sudo systemctl stop relin-updater.service
+sudo journalctl -u relin-updater.service -n 50 --no-pager
+sudo systemctl enable --now relin-updater.service
 ```
 
-Die Live-Ansicht mit Strg+C verlassen; der Dienst läuft weiter. Anschließend:
+Der Dienst läuft als smajliensar7 in /home/smajliensar7/Azubi-Projekt. Bei anderen
+Benutzern/Pfaden die Service-Datei anpassen. Er nutzt dieselbe Docker-Anmeldung
+wie Compose; Python 3 genügt, pip-Pakete sind nicht erforderlich. Falls nötig als
+derselbe Benutzer erneut `docker login --username ensarsmajli` ausführen. Tokens
+gehören nicht ins Skript oder in Git. enable aktiviert den Start beim Booten.
+Docker muss gestartet und für den Benutzer ohne sudo zugänglich sein.
+Updates des Skripts selbst erfolgen per git pull und Dienst-Neustart.
 
-```sh
-cd ~/Azubi-Projekt
-docker compose --env-file .env.compose ps
-grep '^BACKEND_TAG=' .env.compose
-curl --fail --max-time 30 http://127.0.0.1:80/api/markets
-```
+## Grenzen und Validierung
 
-Erwartet: Image und BACKEND_TAG stehen auf 1.0.1, und die Markt-Liste kommt über
-Nginx zurück. Ein bloßer Git-Tag ohne erfolgreich veröffentlichtes Image löst kein
-Deployment aus. Den Start beim Hochfahren bei Gelegenheit mit einem abgesprochenen
-VM-Neustart und anschließendem systemctl status prüfen.
-
-## Stoppen und Diagnose
-
-```sh
-sudo systemctl disable --now relin-updater.service
-docker compose --env-file .env.compose logs --tail=100 backend
-```
-
-Der Dienststopp lässt die bereits gestarteten Container weiterlaufen. Für einen
-manuellen Versionswechsel bei gestopptem Updater BACKEND_TAG in .env.compose ändern,
-dann `docker compose --env-file .env.compose pull backend` und
-`docker compose --env-file .env.compose up -d --no-deps backend` ausführen.
-Anschließend die API testen und den Dienst bei Bedarf wieder aktivieren.
-Passwörter und Tokens beim Teilen von Ausgaben nicht veröffentlichen.
-
-## Prüfung vor dem Serverbetrieb
+Containerwechsel verursachen eine Unterbrechung. Die Wiederherstellung eines
+Images macht keine Flyway-Migrationen rückgängig; Migrationen müssen
+rückwärtskompatibel sein. Fehlerhafte Releases werden erneut versucht. Mit
+`sudo systemctl disable --now relin-updater.service` den Updater bei Bedarf
+anhalten; laufende Container bleiben bestehen. Nach einer Unterbrechung während
+eines Deployments gegebenenfalls Image und Versionsdatei manuell abgleichen.
+Der Updater löscht keine Datenbankdaten und aktualisiert weder PostgreSQL noch Nginx.
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
 
-Diese automatisierten Tests simulieren Registry und Docker. Der tatsächliche
-Registry-Zugriff, der automatische Containerwechsel und der Start nach VM-Reboot
-müssen bei der Einrichtung auf der VM geprüft werden.
+Die Tests simulieren Registry und Docker, einschließlich getrennter Versionsstände,
+Containerwechsel, Fehlern und Wiederherstellung. CI prüft zusätzlich Compose und
+die Host-Nginx-Konfiguration. Echte Downloads, Versionswechsel, Port-80-Zugriff
+und Start nach VM-Reboot werden später auf der VM geprüft. Das abgelaufene
+HTTPS-Zertifikat bleibt separat zu behandeln.
 
 Quellen:
 - https://semver.org/

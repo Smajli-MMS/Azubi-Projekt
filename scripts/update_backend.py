@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Poll Docker Hub for stable releases and update only the Compose backend."""
+"""Poll Docker Hub for stable releases and update the Compose backend and frontend independently."""
 
 import argparse
 import base64
@@ -17,6 +17,10 @@ from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 REPOSITORY = "ensarsmajli/azubi-projekt"
+SERVICES = {
+    "backend": {"repository": REPOSITORY, "variable": "BACKEND_TAG"},
+    "frontend": {"repository": "ensarsmajli/own-webshop-frontend", "variable": "FRONTEND_TAG"},
+}
 REGISTRY = "https://registry-1.docker.io"
 PROJECT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", re.ASCII)
@@ -33,7 +37,7 @@ def version_key(tag):
 def newest_version(tags, current):
     current_key = version_key(current)
     if current_key is None:
-        raise ValueError("BACKEND_TAG must be a stable version such as 1.0.0")
+        raise ValueError("The current image tag must be a stable version such as 1.0.0")
     candidates = [tag for tag in tags if version_key(tag) is not None]
     newest = max(candidates, key=version_key, default=current)
     return newest if version_key(newest) > current_key else None
@@ -73,8 +77,8 @@ def request_json(url, authorization=None):
         return json.load(response), response.headers.get("Link", "")
 
 
-def published_tags():
-    query = urlencode({"service": "registry.docker.io", "scope": f"repository:{REPOSITORY}:pull"})
+def published_tags(repository=REPOSITORY):
+    query = urlencode({"service": "registry.docker.io", "scope": f"repository:{repository}:pull"})
     credentials = docker_credentials()
     authorization = None
     if credentials:
@@ -84,7 +88,7 @@ def published_tags():
     token = payload.get("token") or payload.get("access_token")
     if not token:
         raise RuntimeError("Docker Hub did not return an access token")
-    url = f"{REGISTRY}/v2/{REPOSITORY}/tags/list?n=100"
+    url = f"{REGISTRY}/v2/{repository}/tags/list?n=100"
     tags, visited = [], set()
     while url:
         if url in visited or len(visited) >= 1000:
@@ -100,11 +104,12 @@ def published_tags():
     return tags
 
 
-def compose(*arguments, tag=None):
+def compose(*arguments, tag=None, service="backend"):
     environment = os.environ.copy()
-    environment.pop("BACKEND_TAG", None)
+    for settings in SERVICES.values():
+        environment.pop(settings["variable"], None)
     if tag is not None:
-        environment["BACKEND_TAG"] = tag
+        environment[SERVICES[service]["variable"]] = tag
     result = subprocess.run(
         ["docker", "compose", "--project-directory", str(PROJECT),
          "--env-file", str(PROJECT / ".env.compose"), "-f", str(PROJECT / "compose.yaml"),
@@ -116,25 +121,26 @@ def compose(*arguments, tag=None):
     return result.stdout
 
 
-def configured_version():
+def configured_version(service="backend"):
     config = json.loads(compose("config", "--format", "json"))
-    image = config["services"]["backend"]["image"]
-    prefix = REPOSITORY + ":"
+    image = config["services"][service]["image"]
+    repository = SERVICES[service]["repository"]
+    prefix = repository + ":"
     if not image.startswith(prefix) or version_key(image[len(prefix):]) is None:
-        raise ValueError("Compose backend image must use a stable version of " + REPOSITORY)
+        raise ValueError(f"Compose {service} image must use a stable version of {repository}")
     return image[len(prefix):]
 
 
-def verify_running_version(current):
-    container = compose("ps", "-q", "backend").strip()
+def verify_running_version(current, service="backend"):
+    container = compose("ps", "-q", service).strip()
     if not container:
-        raise RuntimeError("Backend is not running; start Compose first")
+        raise RuntimeError(f"{service} is not running; start Compose first")
     result = subprocess.run(
         ["docker", "inspect", "--format", "{{.Config.Image}}", container],
         text=True, capture_output=True, timeout=15, check=True,
     )
-    if result.stdout.strip() != REPOSITORY + ":" + current:
-        raise RuntimeError("Running backend and BACKEND_TAG differ; reconcile them before updating")
+    if result.stdout.strip() != SERVICES[service]["repository"] + ":" + current:
+        raise RuntimeError(f"Running {service} and {SERVICES[service]['variable']} differ; reconcile them before updating")
 
 
 def wait_for_backend(timeout=300):
@@ -150,14 +156,34 @@ def wait_for_backend(timeout=300):
     raise RuntimeError("Backend did not become ready within 300 seconds")
 
 
-def save_version(tag):
-    """Atomically update only BACKEND_TAG; preserve password and all other lines."""
+def wait_for_frontend(timeout=300):
+    """Check the React page AND its connection to the real backend."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with urlopen("http://127.0.0.1:8082/", timeout=5) as response:
+                page_ready = response.status == 200 and b'id="root"' in response.read(1024 * 1024)
+            with urlopen("http://127.0.0.1:8082/api/markets", timeout=5) as response:
+                api_ready = response.status == 200 and isinstance(json.load(response), list)
+            if page_ready and api_ready:
+                return
+        except (OSError, ValueError):
+            pass
+        time.sleep(5)
+    raise RuntimeError("Frontend or its API proxy did not become ready within 300 seconds")
+
+
+def save_version(tag, service="backend"):
+    """Atomically update one service version, preserving every other setting."""
+    if version_key(tag) is None:
+        raise ValueError("Refusing to save an invalid stable version")
+    variable = SERVICES[service]["variable"]
     path = PROJECT / ".env.compose"
     content = path.read_text()
-    pattern = re.compile(r"^BACKEND_TAG=.*$", re.MULTILINE)
+    pattern = re.compile(r"^" + variable + r"=.*$", re.MULTILINE)
     if len(pattern.findall(content)) != 1:
-        raise ValueError(".env.compose must contain exactly one BACKEND_TAG= line")
-    content = pattern.sub("BACKEND_TAG=" + tag, content)
+        raise ValueError(f".env.compose must contain exactly one {variable}= line")
+    content = pattern.sub(variable + "=" + tag, content)
     descriptor, temporary = tempfile.mkstemp(prefix=".env.compose-", dir=PROJECT)
     try:
         with os.fdopen(descriptor, "w") as output:
@@ -170,37 +196,40 @@ def save_version(tag):
             os.unlink(temporary)
 
 
-def deploy(current, target):
-    LOG.info("Downloading backend %s (current: %s)", target, current)
-    compose("pull", "backend", tag=target)  # Keep the running container if pull fails.
+def deploy(current, target, service="backend"):
+    LOG.info("Downloading %s %s (current: %s)", service, target, current)
+    compose("pull", service, tag=target, service=service)
+    readiness = wait_for_backend if service == "backend" else wait_for_frontend
     try:
-        compose("up", "-d", "--no-deps", "backend", tag=target)
-        wait_for_backend()
-        save_version(target)
+        compose("up", "-d", "--no-deps", service, tag=target, service=service)
+        readiness()
+        save_version(target, service=service)
     except Exception:
-        LOG.error("Update failed; attempting to restore backend %s", current)
-        compose("up", "-d", "--no-deps", "backend", tag=current)
-        wait_for_backend()
+        LOG.error("Update failed; attempting to restore %s %s", service, current)
+        compose("up", "-d", "--no-deps", service, tag=current, service=service)
+        readiness()
         raise
-    LOG.info("Backend %s is ready; .env.compose updated", target)
+    LOG.info("%s %s is ready; .env.compose updated", service, target)
 
 
-def check_once(check_only=False):
-    current = configured_version()
-    verify_running_version(current)
-    target = newest_version(published_tags(), current)
+def check_once(check_only=False, service="backend"):
+    current = configured_version(service=service)
+    verify_running_version(current, service=service)
+    target = newest_version(published_tags(SERVICES[service]["repository"]), current)
     if target:
-        LOG.info("New stable version found: %s -> %s", current, target)
+        LOG.info("New stable %s version found: %s -> %s", service, current, target)
         if not check_only:
-            deploy(current, target)
+            deploy(current, target, service=service)
     else:
-        LOG.info("No higher stable version available (current: %s)", current)
+        LOG.info("No higher stable %s version available (current: %s)", service, current)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Check once without changing containers or files")
     parser.add_argument("--once", action="store_true", help="Check once and deploy a newer release if present")
+    parser.add_argument("--service", choices=["all", *SERVICES], default="all",
+                        help="Check both services by default, or select one")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     # A manual invocation and the service must never deploy concurrently.
@@ -210,17 +239,21 @@ def main():
         except BlockingIOError:
             LOG.error("Another updater is already running")
             return 1
+        selected = list(SERVICES) if args.service == "all" else [args.service]
         while True:
-            try:
-                check_once(args.check)
-            except Exception as error:
-                # Do not log HTTP bodies, Docker output, credentials or bearer tokens.
-                detail = f"HTTP {error.code}" if isinstance(error, HTTPError) else type(error).__name__
-                LOG.error("Update check failed (%s). Check docker login, network and backend logs.", detail)
-                if args.once or args.check:
-                    return 1
+            failed = False
+            for service in selected:
+                try:
+                    check_once(args.check, service=service)
+                except Exception as error:
+                    # Never log response bodies, Docker output or credentials.
+                    detail = f"HTTP {error.code}" if isinstance(error, HTTPError) else type(error).__name__
+                    if isinstance(error, RuntimeError):
+                        detail += ": " + str(error)
+                    LOG.error("%s check failed (%s). Check docker login, network and service logs.", service, detail)
+                    failed = True
             if args.once or args.check:
-                return 0
+                return int(failed)
             time.sleep(10)
 
 
