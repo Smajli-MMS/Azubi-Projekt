@@ -18,6 +18,8 @@ Ein eigenes Datenbankpasswort zwischen die einfachen Anführungszeichen eintrage
 Die Datei .env.compose bleibt lokal und wird nicht committed.
 Es handelt sich um das Passwort für die neue Container-Datenbank, nicht um den
 Docker-Hub-Token. Bei leerem Passwort bricht Compose mit einer Meldung ab.
+BACKEND_TAG muss auf eine veröffentlichte stabile Version wie 1.0.0 gesetzt sein;
+es gibt keinen latest-Fallback.
 Falls der Image-Zugriff privat ist, vorher docker login ausführen.
 
 ## Prüfen und starten (erst auf dem Server)
@@ -64,10 +66,14 @@ docker compose --env-file .env.compose down
 
 ## Stand
 
-Compose-Datei und Beispielkonfiguration sind vorbereitet. YAML und die Zuordnung
-von Ports, Datenpfad und Zugangsdaten werden statisch geprüft.
-Ein echter Compose-/Container-Laufzeittest auf dem Server steht noch aus.
-Danach folgen Nginx, Port 80 und der Test über die öffentliche IP.
+Backend und PostgreSQL wurden auf der Trainings-VM gestartet. Die API wurde
+lokal auf Port 8080 sowie über Nginx auf Port 80 erfolgreich abgefragt.
+Das Backend wurde auf das veröffentlichte Image 1.0.0 umgestellt.
+Der Zugriff über die öffentliche IP und die Erneuerung des abgelaufenen
+HTTPS-Zertifikats sind separat zu prüfen.
+
+Der automatische Wechsel auf höhere stabile Versionen wird in
+[README-Updates.md](README-Updates.md) beschrieben.
 
 Quellen:
 - https://hub.docker.com/_/postgres

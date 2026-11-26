@@ -16,7 +16,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ensarsmajli/azubi-projekt:${BACKEND_TAG:-latest}
+    image: ensarsmajli/azubi-projekt:${BACKEND_TAG:?Set BACKEND_TAG to a stable version such as 1.0.0}
     restart: unless-stopped
     depends_on:
       db:

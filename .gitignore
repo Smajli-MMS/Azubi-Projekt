@@ -46,3 +46,6 @@ bin/
 .env
 .env.local
 .env.compose
+.env.compose-*
+.relin-updater.lock
+__pycache__/
