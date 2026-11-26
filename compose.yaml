@@ -28,3 +28,13 @@ services:
       SERVER_PORT: "8081"
     ports:
       - "127.0.0.1:8080:8081"
+
+  frontend:
+    image: ensarsmajli/own-webshop-frontend:${FRONTEND_TAG:?Set FRONTEND_TAG to a stable version such as 1.0.0}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_UPSTREAM: backend:8081
+    ports:
+      - "127.0.0.1:8082:80"

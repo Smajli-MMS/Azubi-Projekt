@@ -1,4 +1,4 @@
-# Schritt 1: Backend und PostgreSQL mit Compose vorbereiten
+# Schritt 1: Backend, Frontend und PostgreSQL mit Compose vorbereiten
 
 Die compose.yaml liegt im Hauptverzeichnis neben dem Dockerfile.
 Sie nutzt das bereits veröffentlichte Backend-Image von Docker Hub.
@@ -18,8 +18,8 @@ Ein eigenes Datenbankpasswort zwischen die einfachen Anführungszeichen eintrage
 Die Datei .env.compose bleibt lokal und wird nicht committed.
 Es handelt sich um das Passwort für die neue Container-Datenbank, nicht um den
 Docker-Hub-Token. Bei leerem Passwort bricht Compose mit einer Meldung ab.
-BACKEND_TAG muss auf eine veröffentlichte stabile Version wie 1.0.0 gesetzt sein;
-es gibt keinen latest-Fallback.
+BACKEND_TAG und FRONTEND_TAG müssen auf veröffentlichte stabile Versionen wie
+1.0.0 gesetzt sein; es gibt keinen latest-Fallback. Die Versionen sind unabhängig.
 Falls der Image-Zugriff privat ist, vorher docker login ausführen.
 
 ## Prüfen und starten (erst auf dem Server)
@@ -44,6 +44,9 @@ Die Daten deiner bisherigen Laptop-Datenbank werden nicht automatisch übertrage
 
 - db ist der interne DNS-Name der PostgreSQL-Instanz im Compose-Netzwerk.
 - Backend und Datenbank bekommen dasselbe Passwort aus .env.compose.
+- Frontend verwendet BACKEND_UPSTREAM=backend:8081 im gemeinsamen Netzwerk.
+- 127.0.0.1:8082:80 macht das Frontend auf dem Server erreichbar. Der Host-Nginx
+  leitet Port 80 dorthin; der Frontend-Nginx leitet /api/ weiter zum Backend.
 - PostgreSQL hat keinen veröffentlichten Host-Port; das Backend erreicht db:5432.
 - 127.0.0.1:8080:8081 verbindet Server-Loopback-Port 8080 mit Backend-Port 8081.
   Nginx auf demselben Server kann später http://127.0.0.1:8080 verwenden.
@@ -72,8 +75,11 @@ Das Backend wurde auf das veröffentlichte Image 1.0.0 umgestellt.
 Der Zugriff über die öffentliche IP und die Erneuerung des abgelaufenen
 HTTPS-Zertifikats sind separat zu prüfen.
 
-Der automatische Wechsel auf höhere stabile Versionen wird in
+Der automatische Wechsel beider Anwendungen auf höhere stabile Versionen wird in
 [README-Updates.md](README-Updates.md) beschrieben.
+Die vollständige Reihenfolge für die spätere VM-Einrichtung steht in
+[README-Deployment.md](README-Deployment.md). Frontend, Updater und die neue
+Nginx-Konfiguration sind vorbereitet; ihre Installation auf der VM steht noch aus.
 
 Quellen:
 - https://hub.docker.com/_/postgres

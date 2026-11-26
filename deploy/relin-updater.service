@@ -1,5 +1,5 @@
 [Unit]
-Description=Relin backend stable-version updater
+Description=Relin backend and frontend stable-version updater
 Wants=network-online.target
 After=network-online.target docker.service
 Requires=docker.service

@@ -82,7 +82,7 @@ class UpdaterTests(unittest.TestCase):
             sequence.attach_mock(ready, "ready")
             sequence.attach_mock(save, "save")
             updater.deploy("1.0.0", "1.0.1")
-            self.assertEqual(sequence.mock_calls, [call.compose("pull", "backend", tag="1.0.1"), call.compose("up", "-d", "--no-deps", "backend", tag="1.0.1"), call.ready(), call.save("1.0.1")])
+            self.assertEqual(sequence.mock_calls, [call.compose("pull", "backend", tag="1.0.1", service="backend"), call.compose("up", "-d", "--no-deps", "backend", tag="1.0.1", service="backend"), call.ready(), call.save("1.0.1", service="backend")])
 
     def test_failed_pull_does_not_recreate_or_save(self):
         with patch.object(updater, "compose", side_effect=RuntimeError("pull failed")) as compose, patch.object(updater, "save_version") as save:
@@ -95,7 +95,7 @@ class UpdaterTests(unittest.TestCase):
         with patch.object(updater, "compose") as compose, patch.object(updater, "wait_for_backend", side_effect=[RuntimeError("not ready"), None]), patch.object(updater, "save_version") as save:
             with self.assertRaises(RuntimeError):
                 updater.deploy("1.0.0", "1.0.1")
-            self.assertEqual(compose.call_args, call("up", "-d", "--no-deps", "backend", tag="1.0.0"))
+            self.assertEqual(compose.call_args, call("up", "-d", "--no-deps", "backend", tag="1.0.0", service="backend"))
             save.assert_not_called()
 
     def test_check_mode_never_deploys(self):
@@ -107,6 +107,79 @@ class UpdaterTests(unittest.TestCase):
         with patch.object(updater, "compose", return_value="container-id"), patch.object(updater.subprocess, "run", return_value=Mock(stdout="ensarsmajli/azubi-projekt:2.0.0\n")):
             with self.assertRaises(RuntimeError):
                 updater.verify_running_version("1.0.0")
+
+    def test_frontend_versions_are_independent(self):
+        with patch.object(updater, "configured_version", return_value="1.0.0") as configured, patch.object(updater, "verify_running_version"), patch.object(updater, "published_tags", return_value=["1.1.0"]) as tags, patch.object(updater, "deploy") as deploy:
+            updater.check_once(service="frontend")
+            configured.assert_called_once_with(service="frontend")
+            tags.assert_called_once_with("ensarsmajli/own-webshop-frontend")
+            deploy.assert_called_once_with("1.0.0", "1.1.0", service="frontend")
+
+    def test_frontend_deploy_only_recreates_frontend(self):
+        with patch.object(updater, "compose") as compose, patch.object(updater, "wait_for_frontend") as ready, patch.object(updater, "wait_for_backend") as backend_ready, patch.object(updater, "save_version") as save:
+            updater.deploy("1.0.0", "1.0.1", service="frontend")
+            self.assertEqual(compose.call_args_list, [
+                call("pull", "frontend", tag="1.0.1", service="frontend"),
+                call("up", "-d", "--no-deps", "frontend", tag="1.0.1", service="frontend")])
+            ready.assert_called_once_with()
+            backend_ready.assert_not_called()
+            save.assert_called_once_with("1.0.1", service="frontend")
+
+    def test_frontend_failure_restores_only_frontend(self):
+        with patch.object(updater, "compose") as compose, patch.object(updater, "wait_for_frontend", side_effect=[RuntimeError("API unavailable"), None]), patch.object(updater, "save_version") as save:
+            with self.assertRaises(RuntimeError):
+                updater.deploy("1.0.0", "1.0.1", service="frontend")
+            self.assertEqual(compose.call_args, call("up", "-d", "--no-deps", "frontend", tag="1.0.0", service="frontend"))
+            save.assert_not_called()
+
+    def test_frontend_save_preserves_backend_version_and_password(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(updater, "PROJECT", Path(directory)):
+            path = Path(directory, ".env.compose")
+            path.write_text("POSTGRES_PASSWORD='secret$123'\nBACKEND_TAG=2.3.4\nFRONTEND_TAG=1.0.0\n")
+            updater.save_version("1.0.1", service="frontend")
+            self.assertEqual(path.read_text(), "POSTGRES_PASSWORD='secret$123'\nBACKEND_TAG=2.3.4\nFRONTEND_TAG=1.0.1\n")
+
+    def test_compose_ignores_exported_versions_except_selected_override(self):
+        with patch.dict(updater.os.environ, {"BACKEND_TAG": "9.0.0", "FRONTEND_TAG": "9.0.0"}), patch.object(updater.subprocess, "run", return_value=Mock(returncode=0, stdout="")) as run:
+            updater.compose("pull", "frontend", tag="1.0.1", service="frontend")
+            environment = run.call_args.kwargs["env"]
+            self.assertNotIn("BACKEND_TAG", environment)
+            self.assertEqual(environment["FRONTEND_TAG"], "1.0.1")
+            updater.compose("config", "--quiet")
+            environment = run.call_args.kwargs["env"]
+            self.assertNotIn("BACKEND_TAG", environment)
+            self.assertNotIn("FRONTEND_TAG", environment)
+
+    def test_frontend_readiness_requires_page_and_backend_api(self):
+        page = Mock(status=200)
+        page.read.return_value = b'<html><div id="root"></div></html>'
+        page.__enter__ = Mock(return_value=page)
+        page.__exit__ = Mock(return_value=False)
+        api = Mock(status=200)
+        api.read.return_value = b'[]'
+        api.__enter__ = Mock(return_value=api)
+        api.__exit__ = Mock(return_value=False)
+        with patch.object(updater, "urlopen", side_effect=[page, api]) as request:
+            updater.wait_for_frontend()
+            self.assertEqual(request.call_args_list, [call("http://127.0.0.1:8082/", timeout=5), call("http://127.0.0.1:8082/api/markets", timeout=5)])
+
+    def test_frontend_wrong_page_times_out(self):
+        page = Mock(status=200)
+        page.read.return_value = b'<html>Nginx default page</html>'
+        page.__enter__ = Mock(return_value=page)
+        page.__exit__ = Mock(return_value=False)
+        api = Mock(status=200)
+        api.read.return_value = b'[]'
+        api.__enter__ = Mock(return_value=api)
+        api.__exit__ = Mock(return_value=False)
+        with patch.object(updater, "urlopen", side_effect=[page, api]), patch.object(updater.time, "monotonic", side_effect=[0, 0, 301]), patch.object(updater.time, "sleep"):
+            with self.assertRaises(RuntimeError):
+                updater.wait_for_frontend()
+
+    def test_one_service_error_does_not_skip_the_other(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(updater, "PROJECT", Path(directory)), patch("sys.argv", ["updater", "--check"]), patch.object(updater, "check_once", side_effect=[RuntimeError("backend unavailable"), None]) as check:
+            self.assertEqual(updater.main(), 1)
+            self.assertEqual(check.call_args_list, [call(True, service="backend"), call(True, service="frontend")])
 
 
 if __name__ == "__main__":
